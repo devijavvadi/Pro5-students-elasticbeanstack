@@ -1,0 +1,10 @@
+      - name: Create Deployment Package
+        run: |
+          # 1. Enter the src directory
+          cd src
+          
+          # 2. Compress the production files directly into the root bundle
+          zip -r ../bundle-${{ github.sha }}.zip index.php db.php
+          
+          # 3. Return to the root folder
+          cd ..
