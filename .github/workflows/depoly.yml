@@ -1,10 +1,8 @@
-      - name: Create Deployment Package
-        run: |
-          # 1. Enter the src directory
-          cd src
-          
-          # 2. Compress the production files directly into the root bundle
-          zip -r ../bundle-${{ github.sha }}.zip index.php db.php
-          
-          # 3. Return to the root folder
-          cd ..
+name: Deploy PHP App to Terraform Infrastructure
+
+# 1. This "on" block defines what events trigger the pipeline
+on:
+  push:
+    # 2. This restricts the automation to run ONLY when changes land on this specific branch
+    branches:
+      - main
