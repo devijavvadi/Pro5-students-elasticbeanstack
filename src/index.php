@@ -1,11 +1,48 @@
 <?php
-// Include the database connection layer
+// Include the secure database connection layer
 require_once 'db.php';
 
 $message = '';
 $message_type = '';
 
-// 1. HANDLE FORM SUBMISSION (CREATE STUDENT)
+// ==============================================================================
+// 🤖 AUTOMATED AUTO-MIGRATION LAYER
+// Checks if the table exists on page load. If not, it builds it and seeds baseline records.
+// ==============================================================================
+try {
+    // 1. Verify if the students table exists by checking system schemas
+    $tableCheck = $pdo->query("SHOW TABLES LIKE 'students'")->rowCount();
+    
+    if ($tableCheck === 0) {
+        // 2. The table was not found—execute the structural blueprint to build it
+        $createTableSql = "CREATE TABLE students (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            student_id VARCHAR(50) NOT NULL UNIQUE,
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            email VARCHAR(150) NOT NULL UNIQUE,
+            course VARCHAR(100) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+        
+        $pdo->exec($createTableSql);
+
+        // 3. Seed initial baseline records so the system dashboard roster isn't blank
+        $seedSql = "INSERT INTO students (student_id, first_name, last_name, email, course) VALUES 
+            ('STU-1001', 'Jane', 'Doe', 'jane.doe@university.edu', 'Computer Science'),
+            ('STU-1002', 'John', 'Smith', 'john.smith@university.edu', 'Data Analytics')
+            ON DUPLICATE KEY UPDATE student_id=student_id;";
+            
+        $pdo->exec($seedSql);
+    }
+} catch (PDOException $e) {
+    // Quietly records errors behind the scenes without breaking application workflows
+    error_log("Auto-migration system notice: " . $e->getMessage());
+}
+
+// ==============================================================================
+// 📥 HANDLE FORM SUBMISSIONS (CREATE STUDENT)
+// ==============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_student'])) {
     $student_id = trim($_POST['student_id'] ?? '');
     $first_name = trim($_POST['first_name'] ?? '');
@@ -13,16 +50,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_student'])) {
     $email      = trim($_POST['email'] ?? '');
     $course     = trim($_POST['course'] ?? '');
 
-    // Basic Input Validation
+    // Server-Side Field Validation Checks
     if (empty($student_id) || empty($first_name) || empty($last_name) || empty($email) || empty($course)) {
-        $message = "All field inputs are required.";
+        $message = "All form field inputs are strictly required.";
         $message_type = "danger";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $message = "Please provide a valid email address.";
+        $message = "Please provide a structurally valid email address.";
         $message_type = "danger";
     } else {
         try {
-            // Using prepared statements to block SQL Injection attacks entirely
+            // Uses secure bound parameters to systematically block SQL Injection vectors
             $sql = "INSERT INTO students (student_id, first_name, last_name, email, course) 
                     VALUES (:student_id, :first_name, :last_name, :email, :course)";
             
@@ -38,18 +75,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_student'])) {
             $message = "Student record registered successfully!";
             $message_type = "success";
         } catch (PDOException $e) {
-            // Error handling for duplicate key constraints (e.g., Student ID or Email already exists)
+            // Evaluates structural constraint codes to identify registration duplicate collisions
             if ($e->getCode() == 23000) { 
-                $message = "Registration failed: Student ID or Email already exists in the system.";
+                $message = "Registration failed: Student ID reference or Email already exists.";
             } else {
-                $message = "An error occurred while saving the record to the database.";
+                $message = "A backend error occurred while saving the record to the database.";
             }
             $message_type = "danger";
         }
     }
 }
 
-// 2. FETCH CURRENT RECORDS (READ STUDENTS)
+// ==============================================================================
+// 📊 FETCH CURRENT RECORDS (READ ROSTER)
+// ==============================================================================
 try {
     $stmt = $pdo->query("SELECT * FROM students ORDER BY created_at DESC");
     $students = $stmt->fetchAll();
@@ -65,26 +104,26 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Information System</title>
-    <!-- Responsive CSS Layout Framework -->
+    <!-- Stable Bootstrap 5 CSS CDN reference configuration link -->
     <link href="https://jsdelivr.net" rel="stylesheet">
 </head>
 <body class="bg-light">
     <div class="container my-5">
         <h2 class="text-center mb-4">🏫 Student Information System</h2>
 
-        <!-- Dynamically Injected Notification Alerts -->
+        <!-- Dynamic Dismissible Framework Alert Notification Banner -->
         <?php if (!empty($message)): ?>
             <div class="alert alert-<?= $message_type; ?> alert-dismissible fade show shadow-sm" role="alert">
                 <?= htmlspecialchars($message); ?>
-                <button type="button" class="btn-close" data-bs-with="alert" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         <?php endif; ?>
 
         <div class="row g-4">
-            <!-- Left Grid Column: Interactive Enrollment Form -->
+            <!-- Left Layout Grid Column: Interactive Form Panel -->
             <div class="col-md-4">
                 <div class="card shadow-sm border-0">
-                    <div class="card-header bg-primary text-white font-weight-bold">Register New Student</div>
+                    <div class="card-header bg-primary text-white fw-bold">Register New Student</div>
                     <div class="card-body">
                         <form action="index.php" method="POST" autocomplete="off">
                             <div class="mb-3">
@@ -113,10 +152,10 @@ try {
                 </div>
             </div>
 
-            <!-- Right Grid Column: Live Student Roster Output -->
+            <!-- Right Layout Grid Column: Real-Time Table Output Workspace -->
             <div class="col-md-8">
                 <div class="card shadow-sm border-0">
-                    <div class="card-header bg-dark text-white font-weight-bold">Current Student Roster</div>
+                    <div class="card-header bg-dark text-white fw-bold">Current Student Roster</div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover table-striped mb-0 align-middle">
@@ -151,7 +190,3 @@ try {
             </div>
         </div>
     </div>
-    <!-- Bootstrap JavaScript Bundle for closeable alert banners -->
-    <script src="https://jsdelivr.net"></script>
-</body>
-</html>
