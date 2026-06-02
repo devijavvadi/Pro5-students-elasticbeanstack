@@ -1,4 +1,6 @@
+# ==============================================================================
 # 1. AWS Provider and Backend Configuration
+# ==============================================================================
 terraform {
   required_providers {
     aws = {
@@ -12,28 +14,30 @@ provider "aws" {
   region = var.aws_region
 }
 
+# ==============================================================================
 # 2. Networking Infrastructure (VPC & Subnets)
+# ==============================================================================
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
   enable_dns_support   = true
-  tags = { Name = "student-app-vpc" }
+  tags                 = { Name = "student-app-vpc" }
 }
 
 resource "aws_subnet" "public_a" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "${var.aws_region}a"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "${var.aws_region}a"
   map_public_ip_on_launch = true
-  tags = { Name = "public-subnet-a" }
+  tags                    = { Name = "public-subnet-a" }
 }
 
 resource "aws_subnet" "public_b" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "${var.aws_region}b"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "${var.aws_region}b"
   map_public_ip_on_launch = true
-  tags = { Name = "public-subnet-b" }
+  tags                    = { Name = "public-subnet-b" }
 }
 
 resource "aws_internet_gateway" "gw" {
@@ -59,7 +63,9 @@ resource "aws_route_table_association" "b" {
   route_table_id = aws_route_table.public.id
 }
 
+# ==============================================================================
 # 3. Database Security & Subnet Groups
+# ==============================================================================
 resource "aws_db_subnet_group" "db_subnets" {
   name       = "main-db-subnet-group"
   subnet_ids = [aws_subnet.public_a.id, aws_subnet.public_b.id]
@@ -74,7 +80,7 @@ resource "aws_security_group" "db_sg" {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"] # Restricted to VPC traffic
+    cidr_blocks = ["10.0.0.0/16"] # Restricted strictly to internal VPC traffic
   }
 
   egress {
@@ -85,7 +91,9 @@ resource "aws_security_group" "db_sg" {
   }
 }
 
+# ==============================================================================
 # 4. Amazon RDS Instance (Multi-AZ MySQL)
+# ==============================================================================
 resource "aws_db_instance" "student_db" {
   allocated_storage      = 20
   max_allocated_storage  = 100
@@ -101,7 +109,9 @@ resource "aws_db_instance" "student_db" {
   skip_final_snapshot    = true
 }
 
-# 5. IAM Roles for Elastic Beanstalk
+# ==============================================================================
+# 5. IAM Roles for Elastic Beanstalk (FIXED)
+# ==============================================================================
 resource "aws_iam_role" "eb_ec2_role" {
   name = "student-eb-ec2-role"
 
@@ -110,7 +120,9 @@ resource "aws_iam_role" "eb_ec2_role" {
     Statement = [{
       Action    = "sts:AssumeRole"
       Effect    = "Allow"
-      Principal = { Service = "://amazonaws.com" }
+      Principal = { 
+        Service = "ec2.amazonaws.com" # Fixed the malformed principal typo
+      }
     }]
   })
 }
@@ -125,16 +137,24 @@ resource "aws_iam_instance_profile" "eb_profile" {
   role = aws_iam_role.eb_ec2_role.name
 }
 
-# 6. AWS Elastic Beanstalk Infrastructure
+# ==============================================================================
+# 6. AWS Elastic Beanstalk Infrastructure (FIXED WITH DATA SOURCE)
+# ==============================================================================
 resource "aws_elastic_beanstalk_application" "app" {
   name        = "student-information-system"
   description = "Manages student enrollment records"
 }
 
+# Dynamically queries AWS for the latest official PHP 8.4 platform image string
+data "aws_elastic_beanstalk_solution_stack" "latest_php" {
+  most_recent = true
+  name_regex  = "^64bit Amazon Linux 2023 v(.*) running PHP 8.4$"
+}
+
 resource "aws_elastic_beanstalk_environment" "env" {
   name                = "student-system-env"
   application         = aws_elastic_beanstalk_application.app.name
-  solution_stack_name = "64bit Amazon Linux 2023 v4.4.0 running on PHP 8.4"
+  solution_stack_name = data.aws_elastic_beanstalk_solution_stack.latest_php.name
 
   # Network Configurations
   setting {
