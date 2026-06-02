@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_student'])) {
                 ':course'     => $course
             ]);
             
-            $message = "Student record registered successfully!";
+            $message = "Student record registered successfully! Succesfully";
             $message_type = "success";
         } catch (PDOException $e) {
             // Evaluates structural constraint codes to identify registration duplicate collisions
