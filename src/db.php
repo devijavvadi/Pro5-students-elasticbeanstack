@@ -13,5 +13,5 @@ try {
     ]);
 } catch (PDOException $e) {
     // Graceful error message without leaking secure credentials
-    die("Database connection failed. Please check your configuration.");
+    die("Database connection failed. Please check your configuration configuartion.");
 }
